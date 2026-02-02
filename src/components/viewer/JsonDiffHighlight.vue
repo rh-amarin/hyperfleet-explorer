@@ -34,25 +34,77 @@ const jsonLines = computed((): JsonLine[] => {
     const json = JSON.stringify(props.current, null, 2)
     const rawLines = json.split('\n')
 
+    // Track the path stack as we parse the JSON structure
+    const pathStack: (string | number)[] = []
+    const arrayIndexStack: number[] = []
+
     return rawLines.map((line) => {
       const trimmed = line.trim()
-      let path = ''
+      let linePath = ''
 
+      // Detect closing brackets - pop from stack
+      if (trimmed === '}' || trimmed === '},' || trimmed === ']' || trimmed === '],') {
+        pathStack.pop()
+        if (trimmed === ']' || trimmed === '],') {
+          arrayIndexStack.pop()
+        }
+      }
+
+      // Detect array element start (object in array)
+      if (trimmed === '{' && arrayIndexStack.length > 0) {
+        const idx = arrayIndexStack[arrayIndexStack.length - 1]
+        pathStack.push(idx)
+        arrayIndexStack[arrayIndexStack.length - 1] = idx + 1
+      }
+
+      // Detect opening array bracket
+      const arrayStartMatch = trimmed.match(/^"([^"]+)":\s*\[$/)
+      if (arrayStartMatch) {
+        pathStack.push(arrayStartMatch[1])
+        arrayIndexStack.push(0)
+      } else if (trimmed === '[') {
+        // Root-level array
+        arrayIndexStack.push(0)
+      }
+
+      // Detect opening object bracket with key
+      const objectStartMatch = trimmed.match(/^"([^"]+)":\s*\{$/)
+      if (objectStartMatch) {
+        pathStack.push(objectStartMatch[1])
+      }
+
+      // Detect key-value pairs
       const keyMatch = trimmed.match(/^"([^"]+)":\s*/)
-      if (keyMatch) {
-        path = keyMatch[1]
+      if (keyMatch && !arrayStartMatch && !objectStartMatch) {
+        const key = keyMatch[1]
+        // Build full path from stack
+        const fullPath = buildPath(pathStack, key)
+        linePath = fullPath
       }
 
       return {
         content: line,
-        path,
-        isChanged: path ? isPathChanged(path, changedPaths.value) : false,
+        path: linePath,
+        isChanged: linePath ? isPathChanged(linePath, changedPaths.value) : false,
       }
     })
   } catch {
     return [{ content: 'Invalid JSON', path: '', isChanged: false }]
   }
 })
+
+function buildPath(stack: (string | number)[], key: string): string {
+  let path = ''
+  for (const segment of stack) {
+    if (typeof segment === 'number') {
+      path += `[${segment}]`
+    } else {
+      path += path ? `.${segment}` : segment
+    }
+  }
+  path += path ? `.${key}` : key
+  return path
+}
 </script>
 
 <template>

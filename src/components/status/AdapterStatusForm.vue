@@ -96,6 +96,9 @@ async function handleSubmit() {
   try {
     if (resourceType.value === 'cluster' && selectionStore.selectedClusterId) {
       await api.postClusterStatus(selectionStore.selectedClusterId, payload)
+      // Refresh statuses to trigger highlighting
+      const statuses = await api.getClusterStatuses(selectionStore.selectedClusterId)
+      selectionStore.updateStatuses(statuses)
       successMessage.value = 'Cluster status posted successfully'
     } else if (
       resourceType.value === 'nodepool' &&
@@ -107,6 +110,12 @@ async function handleSubmit() {
         selectionStore.selectedNodePoolId,
         payload
       )
+      // Refresh statuses to trigger highlighting
+      const statuses = await api.getNodePoolStatuses(
+        selectionStore.selectedClusterId,
+        selectionStore.selectedNodePoolId
+      )
+      selectionStore.updateStatuses(statuses)
       successMessage.value = 'NodePool status posted successfully'
     }
   } catch (e) {

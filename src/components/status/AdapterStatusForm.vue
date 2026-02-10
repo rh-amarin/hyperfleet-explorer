@@ -12,7 +12,7 @@ const api = useApi()
 const resourceType = ref<ResourceType>('cluster')
 const adapterName = ref('')
 const observedGeneration = ref<number | null>(null)
-const availableStatus = ref<'True' | 'False'>('True')
+const availableStatus = ref<'True' | 'False' | 'Unknown'>('True')
 const isSubmitting = ref(false)
 const successMessage = ref<string | null>(null)
 const errorMessage = ref<string | null>(null)
@@ -25,6 +25,7 @@ const resourceTypes = [
 const availableOptions = [
   { title: 'True', value: 'True' as const },
   { title: 'False', value: 'False' as const },
+  { title: 'Unknown', value: 'Unknown' as const },
 ]
 
 const canSubmit = computed(() => {
@@ -50,31 +51,45 @@ const selectedResourceLabel = computed(() => {
   }
 })
 
-function createConditions(status: 'True' | 'False'): Condition[] {
+function getReasonAndMessage(status: 'True' | 'False' | 'Unknown', type: string): { reason: string; message: string } {
+  if (status === 'Unknown') {
+    return { reason: 'Unknown', message: `${type} status is unknown` }
+  }
+  const isTrue = status === 'True'
+  switch (type) {
+    case 'Available':
+      return {
+        reason: isTrue ? 'Available' : 'Unavailable',
+        message: isTrue ? 'Resource is available' : 'Resource is not available',
+      }
+    case 'Applied':
+      return {
+        reason: isTrue ? 'Applied' : 'NotApplied',
+        message: isTrue ? 'Configuration applied' : 'Configuration not applied',
+      }
+    case 'Health':
+      return {
+        reason: isTrue ? 'Healthy' : 'Unhealthy',
+        message: isTrue ? 'Resource is healthy' : 'Resource is not healthy',
+      }
+    default:
+      return { reason: status, message: '' }
+  }
+}
+
+function createConditions(status: 'True' | 'False' | 'Unknown'): Condition[] {
   const now = new Date().toISOString()
-  return [
-    {
-      type: 'Available',
+  const types = ['Available', 'Applied', 'Health']
+  return types.map((type) => {
+    const { reason, message } = getReasonAndMessage(status, type)
+    return {
+      type,
       status,
-      reason: status === 'True' ? 'Available' : 'Unavailable',
-      message: status === 'True' ? 'Resource is available' : 'Resource is not available',
-      last_transition_time: now,
-    },
-    {
-      type: 'Applied',
-      status,
-      reason: status === 'True' ? 'Applied' : 'NotApplied',
-      message: status === 'True' ? 'Configuration applied' : 'Configuration not applied',
-      last_transition_time: now,
-    },
-    {
-      type: 'Healthy',
-      status,
-      reason: status === 'True' ? 'Healthy' : 'Unhealthy',
-      message: status === 'True' ? 'Resource is healthy' : 'Resource is not healthy',
-      last_transition_time: now,
-    },
-  ]
+      reason,
+      message,
+      observed_time: now,
+    }
+  })
 }
 
 async function handleSubmit() {

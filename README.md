@@ -44,6 +44,32 @@ server: {
 }
 ```
 
+## Running with Docker/Podman
+
+The container image is available at `quay.io/amarin/hyperfleet-explorer`.
+
+It serves the app via nginx on port 80 and proxies all `/api/*` requests to the HyperFleet API, avoiding CORS issues.
+
+**Basic usage:**
+
+```bash
+podman run -p 5173:80 -e API_URL=http://<api-host>:<port> quay.io/amarin/hyperfleet-explorer:latest
+```
+
+The app will be available at `http://localhost:5173`. Leave the **API Base URL** field empty in the UI — nginx handles the proxying automatically.
+
+**Running locally with a HyperFleet API on your machine:**
+
+```bash
+podman run -p 5173:80 -e API_URL=http://host.docker.internal:8080 quay.io/amarin/hyperfleet-explorer:latest
+```
+
+`host.docker.internal` resolves to the host machine from inside the container.
+
+| Environment variable | Default | Description |
+|---|---|---|
+| `API_URL` | `http://localhost:8080` | HyperFleet API base URL, reachable from inside the container |
+
 ## Build
 
 ```bash
